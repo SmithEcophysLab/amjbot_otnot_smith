@@ -26,11 +26,11 @@ nrow(HF_rh)
 ###############################################################################################
 
 ## join average data together
-HF_temp_mean = HF_temp[, 6:7]
-HF_par_mean = HF_par[, 6:7]
-HF_rh_mean = HF_rh[, 6:7]
-HF_mean = left_join(HF_temp_mean, HF_par_mean)
-HF_mean = left_join(HF_mean, HF_rh_mean)
+HF_temp_mean = HF_temp[, 5:7]
+HF_par_mean = HF_par[, 5:7]
+HF_rh_mean = HF_rh[, 5:7]
+HF_mean = left_join(HF_temp_mean, HF_rh_mean)
+HF_mean = left_join(HF_mean, HF_par_mean)
 
 ## calculate VPD from T and rh
 vpd_from_t <- function(t, rh){ 
@@ -42,6 +42,9 @@ vpd_from_t <- function(t, rh){
 }
 
 HF_mean$VPD = vpd_from_t(HF_mean$tempSingleMean, HF_mean$RHMean) / 1000
+
+## remove NAs
+HF_mean <- subset(HF_mean, VPD!='NA')
 
 ## keep only daytime values
 HF_mean_day = subset(HF_mean, PARMean > 0)
@@ -161,7 +164,7 @@ timescale_plot <- ggplot(data = timescale_dataframe, aes(y = photosynthesis_seas
 
 ## calculate max values for acclimation
 HF_mean_day$date = as.factor(as.Date(HF_mean_day$endDateTime)) 
-HF_group_by_date = group_by(HF_mean_day[, 2:6], date)
+HF_group_by_date = group_by(HF_mean_day[, 2:7], date)
 HF_max_date = summarize(HF_group_by_date, 
                          par = max(PARMean, na.rm = T), # change needed to get acclimation to max PAR
                          temp = mean(tempSingleMean, na.rm = T), 
@@ -173,9 +176,9 @@ HF_max_date = summarize(HF_group_by_date,
 MA_max <- list()
 for (i in 1:90){
   
-  temp_MA = rollapply(HF_mean_date$temp, i, mean, fill = NA, align ='right')
-  par_MA = rollapply(HF_mean_date$par, i, mean, fill = NA, align ='right')
-  vpd_MA = rollapply(HF_mean_date$vpd, i, mean, fill = NA, align ='right')
+  temp_MA = rollapply(HF_max_date$temp, i, mean, fill = NA, align ='right')
+  par_MA = rollapply(HF_max_date$par, i, mean, fill = NA, align ='right')
+  vpd_MA = rollapply(HF_max_date$vpd, i, mean, fill = NA, align ='right')
   
   temporary = cbind(temp_MA, par_MA, vpd_MA)
   colnames(temporary) = c(paste('temp_MA', i, sep = '_'), paste('par_MA', i, sep = '_'), paste('vpd_MA', i, sep = '_'))
@@ -191,7 +194,7 @@ for (i in 1:90){
   
   vars = calc_optimal_vcmax(cao = 400, 
                             tg_c = MA[[i]][days_interest, 1], 
-                            paro = MA[[i]][days_interest, 2], 
+                            paro = MA_max[[i]][days_interest, 2], 
                             z = 300, 
                             vpdo = MA[[i]][days_interest, 3])
   
@@ -202,15 +205,90 @@ for (i in 1:90){
 }
 
 ## make a dataframe with 30-min HF data that includes acclimated vcmax and jmax values
-HF_30min_data <- subset(HF_mean_day, as.Date(date) > as.Date("2017-05-31") & as.Date(date) < as.Date("2017-10-31"))
+HF_mean$date = as.factor(as.Date(HF_mean$startDateTime)) 
+HF_30min_data <- subset(HF_mean, as.Date(date) > as.Date("2017-05-31") & as.Date(date) < as.Date("2017-09-30"))
 head(HF_30min_data)
 tail(HF_30min_data)
 
+##
+HF_30min_data_group <- group_by(HF_30min_data, startDateTime, endDateTime, date)
+HF_30min_data_summary <- summarise(HF_30min_data_group,
+                                 tmp = mean(tempSingleMean, na.rm = T),
+                                 rh = mean(RHMean, na.rm = T),
+                                 par = mean(PARMean, na.rm = T),
+                                 vpd = mean(VPD, na.rm = T))
+head(HF_30min_data_summary)
+
 ## create data frame to merge in acclimated values
 merge_doys <- data.frame(as.factor(as.Date(seq(as.Date("2017-06-01"), as.Date("2017-09-30"), 1))), days_interest)
-colnames(merge_doys) <- c('Date', 'doy')
+colnames(merge_doys) <- c('date', 'doy')
 
-# STELL TO DO: MERGE THE DATA FRAMES AND MAKE DIURNAL PLOTS, ALSO NEED TO MAKE BETA PLOT
+## add doy to 30 min data
+HF_30min_data_doy <- left_join(HF_30min_data, merge_doys)
+head(HF_30min_data_doy)
+tail(HF_30min_data_doy)
+nrow(HF_30min_data_doy)
+
+## boil it down to a week
+HF_30min_week <- subset(HF_30min_data_doy, doy >545 & doy <553)
+tail(HF_30min_week)
+nrow(HF_30min_week)
+
+HF_30min_week_group <- group_by(HF_30min_week, startDateTime, endDateTime, date, doy)
+HF_30min_week_summary <- summarise(HF_30min_week_group,
+                                   tmp = mean(tempSingleMean, na.rm = T),
+                                   rh = mean(RHMean, na.rm = T),
+                                   par = mean(PARMean, na.rm = T),
+                                   vpd = mean(VPD, na.rm = T))
+head(HF_30min_week_summary)
+nrow(HF_30min_week_summary)
+
+### merge in vcmax and jmax
+doy = days_interest
+
+acclimation_values_max_week <- cbind(acclimation_values_max[[7]], doy)
+HF_30min_week_max <- left_join(HF_30min_week_summary, acclimation_values_max_week, by = c('doy'))
+head(HF_30min_week_max)
+
+acclimation_values_mean_week <- cbind(acclimation_values[[7]], doy)
+HF_30min_week_mean <- left_join(HF_30min_week_summary, acclimation_values_mean_week, by = c('doy'))
+head(HF_30min_week_mean)
+
+### calculate photosynthesis
+photosynthesis_max = Photosyn(VPD = HF_30min_week_max$vpd.x, # vpd on day of interest
+                          Ca = 400, 
+                          PPFD = HF_30min_week_max$par.x, # par on day of interest
+                          Tleaf = HF_30min_week_max$tmp, # temp on day of interest
+                          Patm = HF_patm, # patm on day of interest
+                          Jmax = HF_30min_week_max$jmax, # run through vcmax and jmax values
+                          Vcmax = HF_30min_week_max$vcmax)
+plot(photosynthesis_max$ALEAF, type = 'l')
+
+photosynthesis_mean = Photosyn(VPD = HF_30min_week_mean$vpd.x, # vpd on day of interest
+                              Ca = 400, 
+                              PPFD = HF_30min_week_mean$par.x, # par on day of interest
+                              Tleaf = HF_30min_week_mean$tmp, # temp on day of interest
+                              Patm = HF_patm, # patm on day of interest
+                              Jmax = HF_30min_week_mean$jmax, # run through vcmean and jmean values
+                              Vcmax = HF_30min_week_mean$vcmax)
+plot(photosynthesis_mean$ALEAF, type = 'l')
+
+# STILL TO DO: MAKE (pretty) DIURNAL PLOTS, ALSO NEED TO MAKE BETA PLOT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # calculate seasonal photosynthesis assuming LAI = 6, seconds to season = 60 * 60 * 24 * (636 - 515) = 10454400, and 1 µmol CO2 = 1e-6 mol, and 12 g C / mole CO2
