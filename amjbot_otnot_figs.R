@@ -8,6 +8,7 @@ library(lubridate)
 library(plantecophys)
 library(R.utils)
 library(ggplot2)
+library(grid)
 
 ## load up functions
 source('model_code/optimal_vcmax_R/calc_optimal_vcmax.R')
@@ -54,7 +55,7 @@ HF_mean_day = subset(HF_mean, PARMean > 0)
 ### see: http://www.neonscience.org/dc-convert-date-time-POSIX-r
 HF_mean_day$date = as.factor(as.Date(HF_mean_day$endDateTime)) 
 ### aggregate
-HF_group_by_date = group_by(HF_mean_day[, 2:6], date)
+HF_group_by_date = group_by(HF_mean_day[, 2:7], date)
 HF_mean_date = summarize(HF_group_by_date, 
                          par = mean(PARMean, na.rm = T), 
                          temp = mean(tempSingleMean, na.rm = T), 
@@ -150,13 +151,14 @@ timescale_plot <- ggplot(data = timescale_dataframe, aes(y = photosynthesis_seas
         axis.text.y=element_text(size=rel(2), colour = 'black'),
         panel.background = element_rect(fill = 'white', colour = 'black'),
         panel.grid.major = element_line(colour = "grey")) +
-  geom_line(aes(color='black'), linewidth = 2) +
+  geom_line(aes(color='blue'), linewidth = 2) +
   geom_line(aes(y=vcmax_var/vcmax_var[1], color='red'), linewidth = 2) +
   ylab('Relative seasonal value') +
   xlab('Acclimation timescale (days)') +
-  scale_colour_manual(name = NULL, values =c('black'='black','red'='red'), labels = c('Photosynthesis','Cost')) +
+  scale_colour_manual(name = NULL, values =c('blue'='blue','red'='red'), labels = c('Photosynthesis','Cost')) +
   ylim(c(0.2, 1)) +
-  xlim(c(0, 90))
+  xlim(c(0, 90)) +
+  labs(tag = "A")
 
 ###############################################################################################
 ## 2. figure showing 1 week of diurnal photosynthesis of average and midday acclimation
@@ -273,9 +275,103 @@ photosynthesis_mean = Photosyn(VPD = HF_30min_week_mean$vpd.x, # vpd on day of i
                               Vcmax = HF_30min_week_mean$vcmax)
 plot(photosynthesis_mean$ALEAF, type = 'l')
 
-# STILL TO DO: MAKE (pretty) DIURNAL PLOTS, ALSO NEED TO MAKE BETA PLOT
+## make pretty figure
+diurnal_plot <- ggplot(data = photosynthesis_mean, aes(y=ALEAF, x = seq(1, 312, 1))) +
+  theme(legend.position = "right", 
+        plot.title = element_text(size = rel(2.2)),
+        legend.title = element_text(size = rel(1)),
+        legend.text = element_text(size = rel(1)),
+        plot.tag = element_text(size = rel(2)),
+        axis.title.y=element_text(size=rel(2.2), colour = 'black'),
+        axis.title.x=element_text(size=rel(2.2), colour = 'black'),
+        axis.text.x=element_text(size=rel(2), colour = 'black'),
+        axis.text.y=element_text(size=rel(2), colour = 'black'),
+        panel.background = element_rect(fill = 'white', colour = 'black'),
+        panel.grid.major = element_line(colour = "grey")) +
+  geom_line(aes(color='black'), linewidth = 1.5, lty = 1) +
+  geom_line(data = photosynthesis_max, aes(color='orange'), 
+            linewidth = 1.5, lty = 1, alpha = 0.7) +
+  ylab(expression('Photosynthesis (µmol m'^'2'*' s'^'-1'*')')) +
+  xlab('Time (7 total days)') +
+  scale_colour_manual(name = 'Acclimated conditions', 
+                      values =c('black'='black','orange'='orange'), 
+                      labels = c('Mean','Max')) +
+  ylim(c(-10, 50)) +
+  labs(tag = "B")
 
+###############################################################################################
+## 3. figure showing impact of altered soil resource acquisition costs on 
+# stomatal conductance and photosynthetic N
+###############################################################################################
 
+## make a beta sensitivity simulation
+beta_sensitivity <- calc_optimal_vcmax(beta = seq(10, 1000, 1))
+beta_sensitivity$gs <- (beta_sensitivity$Ac/beta_sensitivity$cao) / (1 - beta_sensitivity$chi)
+
+beta_gs_plot <- ggplot(data = beta_sensitivity, aes(y = gs/gs[991], x = beta)) +
+  theme(legend.position = "right", 
+        plot.title = element_text(size = rel(2.2)),
+        legend.title = element_text(size = rel(1)),
+        legend.text = element_text(size = rel(1)),
+        plot.tag = element_text(size = rel(2)),
+        axis.title.y=element_text(size=rel(2.2), colour = 'black'),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_text(size=rel(2), colour = 'black'),
+        panel.background = element_rect(fill = 'white', colour = 'black'),
+        panel.grid.major = element_line(colour = "grey")) +
+  geom_line(color = 'blue', linewidth = 3, lty = 1) +
+  ylab(expression('Relative stomatal conductance')) +
+  xlab('Cost of acquiring nutrients relative to water (unitless)') +
+  ylim(c(0, 1)) +
+  labs(tag = "A")
+
+beta_n_plot <- ggplot(data = beta_sensitivity, aes(y = nphoto/nphoto[1], x = beta)) +
+  theme(legend.position = "right", 
+        plot.title = element_text(size = rel(2.2)),
+        legend.title = element_text(size = rel(1)),
+        legend.text = element_text(size = rel(1)),
+        plot.tag = element_text(size = rel(2)),
+        axis.title.y=element_text(size=rel(2.2), colour = 'black'),
+        axis.title.x=element_text(size=rel(2.2), colour = 'black'),
+        axis.text.x=element_text(size=rel(2), colour = 'black'),
+        axis.text.y=element_text(size=rel(2), colour = 'black'),
+        panel.background = element_rect(fill = 'white', colour = 'black'),
+        panel.grid.major = element_line(colour = "grey")) +
+  geom_line(color = 'darkorange', linewidth = 3, lty = 1) +
+  ylab(expression('Relative photosynthetic nitrogen')) +
+  xlab('Acq. cost of nutrients relative to water (unitless)') +
+  ylim(c(0.9, 1)) +
+  labs(tag = "B")
+
+###################################################################################################
+## output plots
+###################################################################################################
+
+### Figure 2 (second two combined)
+beta_gs_plot_g <- ggplotGrob(beta_gs_plot)
+beta_n_plot_g <- ggplotGrob(beta_n_plot)
+beta_gs_n_plot_g <- rbind(beta_gs_plot_g, 
+                               beta_n_plot_g, 
+                              size = "max")
+
+tiff(filename = "plots/Figure2.tiff", 
+     width = 9, height = 18, units = 'in', res = 300)
+grid.newpage()
+grid.draw(beta_gs_n_plot_g)
+dev.off()
+
+timescale_plot_g <- ggplotGrob(timescale_plot)
+diurnal_plot_g <- ggplotGrob(diurnal_plot)
+timescale_diurnal_plot_g <- cbind(timescale_plot_g, 
+                                  diurnal_plot_g, 
+                                  size = "max")
+
+tiff(filename = "plots/Figure1.tiff", 
+     width = 16, height = 8, units = 'in', res = 300)
+grid.newpage()
+grid.draw(timescale_diurnal_plot_g)
+dev.off()
 
 
 
