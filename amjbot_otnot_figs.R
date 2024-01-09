@@ -142,8 +142,8 @@ timescale_dataframe <- data.frame(cbind(photosynthesis_season, vcmax_var))
 timescale_plot <- ggplot(data = timescale_dataframe, aes(y = photosynthesis_season/photosynthesis_season[1], x = seq(1,90,1))) +
   theme(legend.position = "right", 
         plot.title = element_text(size = rel(2.2)),
-        legend.title = element_text(size = rel(1.5)),
-        legend.text = element_text(size = rel(1)),
+        legend.title = element_text(size = rel(2)),
+        legend.text = element_text(size = rel(2)),
         plot.tag = element_text(size = rel(2)),
         axis.title.y=element_text(size=rel(2.2), colour = 'black'),
         axis.title.x=element_text(size=rel(2.2), colour = 'black'),
@@ -279,12 +279,12 @@ plot(photosynthesis_mean$ALEAF, type = 'l')
 diurnal_plot <- ggplot(data = photosynthesis_mean, aes(y=ALEAF, x = seq(1, 312, 1))) +
   theme(legend.position = "right", 
         plot.title = element_text(size = rel(2.2)),
-        legend.title = element_text(size = rel(1)),
-        legend.text = element_text(size = rel(1)),
+        legend.title = element_text(size = rel(2)),
+        legend.text = element_text(size = rel(2)),
         plot.tag = element_text(size = rel(2)),
         axis.title.y=element_text(size=rel(2.2), colour = 'black'),
         axis.title.x=element_text(size=rel(2.2), colour = 'black'),
-        axis.text.x=element_text(size=rel(2), colour = 'black'),
+        axis.text.x=element_blank(),
         axis.text.y=element_text(size=rel(2), colour = 'black'),
         panel.background = element_rect(fill = 'white', colour = 'black'),
         panel.grid.major = element_line(colour = "grey")) +
@@ -368,43 +368,11 @@ timescale_diurnal_plot_g <- cbind(timescale_plot_g,
                                   size = "max")
 
 tiff(filename = "plots/Figure1.tiff", 
-     width = 16, height = 8, units = 'in', res = 300)
+     width = 18, height = 8, units = 'in', res = 300)
 grid.newpage()
 grid.draw(timescale_diurnal_plot_g)
 dev.off()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# calculate seasonal photosynthesis assuming LAI = 6, seconds to season = 60 * 60 * 24 * (636 - 515) = 10454400, and 1 µmol CO2 = 1e-6 mol, and 12 g C / mole CO2
-photosynthesis_season_gc = photosynthesis_season * 10454400 * 1e-6 * 12
-
-par(mfrow = c(1, 1), mar = c(8, 8, 1, 8))
-plot(photosynthesis_season_gc ~ seq(1, 90, 1), 
-     type = 'l', lwd = 6, lty = 1, ylim = c(600, 800), xlim = c(1, 90), yaxt = 'n', xaxt = 'n', ylab = '', xlab = '')
-axis(2, seq(200, 325, 25), cex.axis = 1.5, las = 2)
-par(new = T)
-plot(vcmax_var ~ seq(1, 90, 1), 
-     type = 'l', lwd = 6, lty = 2, col = 'red', ylim = c(4, 20), xlim = c(1, 90), yaxt = 'n', xaxt = 'n', ylab = '', xlab = '')
-axis(1, seq(0, 90, 10), cex.axis = 1.5)
-axis(4, seq(2, 10, 2), cex.axis = 1.5, las = 2)
-
-mtext(side = 1, 'Acclimation timescale (days)', cex = 2, line = 4)
-mtext(side = 2, expression('Leaf C assimilation (gC m'^'-2'*' yr'^'-1'*')'), cex = 2, line = 4)
-mtext(side = 4, expression('Photosynthetic cost (µmol m'^'-2'*' s'^'-1'*')'), cex = 2, line = 4)
-
-legend('topright', c('Assimilation', 'Cost'), col = c('black', 'red'), lwd = 6, lty = c(1, 2), cex = 2)
 
 
 
