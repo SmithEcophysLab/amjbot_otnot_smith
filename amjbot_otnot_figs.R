@@ -10,11 +10,11 @@ library(R.utils)
 library(ggplot2)
 library(grid)
 
-## load up functions
+## load up model functions (can be sourced from github.com/smithecophyslab/optimal_vcmax_R)
 source('model_code/optimal_vcmax_R/calc_optimal_vcmax.R')
 sourceDirectory('model_code/optimal_vcmax_R/functions')
 
-## load NEON data
+## load NEON data (can be sourced from NEON data portal)
 HF_temp = read.csv('/Users/nicksmith/Documents/Research/Timescale_acclimation/Sensitivity/NEON_HarvardForest/NEON_temp-air-single/stackedFiles/SAAT_30min.csv')
 HF_par = read.csv('/Users/nicksmith/Documents/Research/Timescale_acclimation/Sensitivity/NEON_HarvardForest/NEON_par/stackedFiles/PARPAR_30min.csv')
 HF_rh = read.csv('/Users/nicksmith/Documents/Research/Timescale_acclimation/Sensitivity/NEON_HarvardForest/NEON_rel-humidity/stackedFiles/RH_30min.csv')
@@ -373,8 +373,11 @@ grid.newpage()
 grid.draw(timescale_diurnal_plot_g)
 dev.off()
 
-
-
+#####################################
+## additional calculations
+#####################################
+mean(HF_30min_week_max$vcmax) # average vcmax for simulations assuming acclimation to max light
+mean(HF_30min_week_mean$vcmax) # average vcmax for simulations assuming acclimation to mean light
 
 
 
